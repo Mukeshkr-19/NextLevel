@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Next-Level Staff Admin</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="../static/css/style.css">
+    <style>
+        body {
+            background: #f5f7fb;
+            color: #1d2b3a;
+            font-family: Poppins, Arial, sans-serif;
+        }
+
+        .admin-shell {
+            max-width: 1180px;
+            margin: 30px auto 60px;
+            padding: 0 18px;
+        }
+
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .admin-header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .admin-panel {
+            background: #ffffff;
+            border: 1px solid #d9e0ea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 18px;
+            box-shadow: 0 6px 18px rgba(20, 32, 50, 0.06);
+        }
+
+        .admin-panel h2 {
+            margin-top: 0;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .table > thead > tr > th {
+            background: #eef3f8;
+            border-bottom: 1px solid #cbd6e2;
+            color: #263849;
+        }
+
+        .score-form {
+            display: grid;
+            grid-template-columns: minmax(130px, 1fr) 100px minmax(180px, 2fr) minmax(140px, 1fr) 110px;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .score-form label {
+            display: block;
+            font-size: 12px;
+            color: #40546a;
+            margin-bottom: 4px;
+        }
+
+        .btn-primary {
+            background: #1d5f99;
+            border-color: #1d5f99;
+        }
+
+        .btn-link-button {
+            border: 0;
+            background: transparent;
+            color: #1d5f99;
+            padding: 6px 0;
+        }
+
+        @media (max-width: 900px) {
+            .admin-header {
+                display: block;
+            }
+
+            .admin-actions {
+                margin-top: 12px;
+            }
+
+            .score-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="admin-shell">
+    <header class="admin-header">
+        <div>
+            <h1>Staff Admin</h1>
+            <p>Manage team scores, export backups, and review score changes.</p>
+        </div>
+        <div class="admin-actions">
+            <a class="btn btn-primary" href="/admin/export/scores.csv">Export CSV</a>
+            <a class="btn btn-default" href="/leaderboard">Leaderboard</a>
+            <form action="/admin/logout" method="post">
+                <button class="btn-link-button" type="submit">Log out</button>
+            </form>
+        </div>
+    </header>
+
+    <section class="admin-panel">
+        <h2>Adjust Team Points</h2>
+        <form class="score-form" action="/admin/scores/adjust" method="post">
+            <div>
+                <label for="username">Team</label>
+                <select id="username" name="username" class="form-control" required>
+                    <option value="">Select team</option>
+                    {% for team in teams %}
+                    <option value="{{ team.username }}">{{ team.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="delta">Points</label>
+                <input type="number" id="delta" name="delta" class="form-control" placeholder="+10" required>
+            </div>
+            <div>
+                <label for="reason">Reason</label>
+                <input type="text" id="reason" name="reason" class="form-control" placeholder="Example: mentor bonus verified" required>
+            </div>
+            <div>
+                <label for="actor">Staff name</label>
+                <input type="text" id="actor" name="actor" class="form-control" placeholder="Optional">
+            </div>
+            <button type="submit" class="btn btn-primary">Apply</button>
+        </form>
+    </section>
+
+    <section class="admin-panel">
+        <h2>Team Scores</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Team</th>
+                    <th>Points</th>
+                    <th>Questions Completed</th>
+                    <th>Last Updated</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for team in teams %}
+                <tr>
+                    <td>{{ team.rank }}</td>
+                    <td>{{ team.username }}</td>
+                    <td>{{ team.points }}</td>
+                    <td>{{ team.questions|length }}</td>
+                    <td>{{ team.updated_at or "Not recorded" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">No team scores have been recorded yet.</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="admin-panel">
+        <h2>Score Audit Log</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Team</th>
+                    <th>Change</th>
+                    <th>Before</th>
+                    <th>After</th>
+                    <th>Reason</th>
+                    <th>Staff</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for entry in audit_log %}
+                <tr>
+                    <td>{{ entry.created_at }}</td>
+                    <td>{{ entry.username }}</td>
+                    <td>{{ entry.delta }}</td>
+                    <td>{{ entry.previous_points }}</td>
+                    <td>{{ entry.new_points }}</td>
+                    <td>{{ entry.reason }}</td>
+                    <td>{{ entry.actor }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">No manual score changes have been recorded yet.</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

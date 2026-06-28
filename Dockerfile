@@ -1,8 +1,10 @@
 FROM python:3.8
 WORKDIR /root
-COPY . .
 
-RUN pip3 install pymongo bcrypt Flask requests
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+COPY . .
 
 EXPOSE 3000
 

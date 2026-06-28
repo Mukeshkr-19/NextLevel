@@ -24,14 +24,19 @@
         $(document).ready(function () {
             function updateLeaderboard() {
                 $.ajax({
-                    url: '/leaderboard_data', // Ensure this route is defined in your Flask app
+                    url: '/leaderboard_data',
                     type: 'GET',
                     success: function (data) {
                         var leaderboardHTML = '';
-                        data.forEach(function (entry) {
-                            leaderboardHTML += entry.username + ': ' + entry.points + '<br>';
+                        data.leaderboard.forEach(function (entry) {
+                            leaderboardHTML += '<tr>' +
+                                '<td class="rank-cell">' + entry.rank + '</td>' +
+                                '<td>' + entry.username + '</td>' +
+                                '<td class="points-cell">' + entry.points + '</td>' +
+                                '</tr>';
                         });
-                        $('.dopup h2').html(leaderboardHTML);
+                        $('#leaderboardBody').html(leaderboardHTML);
+                        $('#lastUpdated').text(data.last_updated || data.generated_at || 'Waiting for scores');
                     },
                     error: function (error) {
                         console.log('Error:', error);
@@ -42,7 +47,97 @@
             setInterval(updateLeaderboard, 1000);
         });
     </script>
-    </script>
+    <style>
+        body {
+            background: #07111f;
+        }
+
+        .leaderboard-stage {
+            background: #07111f;
+            color: #ffffff;
+            min-height: 76vh;
+            padding: 44px 0;
+        }
+
+        .leaderboard-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .leaderboard-header h1 {
+            margin: 0;
+            font-size: 52px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .last-updated {
+            color: #bdd2e8;
+            font-size: 18px;
+            text-align: right;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            background: #ffffff;
+            color: #102033;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 22px 26px;
+            border-bottom: 1px solid #dce4ee;
+            font-size: 30px;
+        }
+
+        .leaderboard-table th {
+            background: #dce9f6;
+            color: #102033;
+            font-size: 20px;
+            text-transform: uppercase;
+        }
+
+        .rank-cell,
+        .points-cell {
+            width: 150px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .empty-row {
+            text-align: center;
+            color: #40546a;
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-header {
+                display: block;
+            }
+
+            .leaderboard-header h1 {
+                font-size: 36px;
+            }
+
+            .last-updated {
+                margin-top: 10px;
+                text-align: left;
+            }
+
+            .leaderboard-table th,
+            .leaderboard-table td {
+                padding: 16px 12px;
+                font-size: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -74,24 +169,40 @@
 </nav>
 
 
-<!-- Main Content -->
-<section class="container-fluid sec-2 ">
+<section class="leaderboard-stage">
     <div class="container">
-        <div class="row clearfix nor">
-            <div class="col-sm-12 topup">
-
-                <span class="company__logo"><h2><span class="fa-solid fa-trophy"></span></h2></span>
-                <h4 class="company_title">Leaderboard</h4>
+        <div class="leaderboard-header">
+            <div>
+                <h1>Leaderboard</h1>
+                <p>Next-Level Leadership Conference</p>
             </div>
-
-
-            <div class="col-sm-12 dopup ">
-                <h1></h1>
-                <div class="col-sm-12 col-xs-12 np ">
-                    <h2 class="text-center">{{leader}}</h2>
-                </div>
+            <div class="last-updated">
+                Last updated: <span id="lastUpdated">{{ last_updated or "Waiting for scores" }}</span>
             </div>
         </div>
+
+        <table class="leaderboard-table">
+            <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Team</th>
+                <th>Points</th>
+            </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+            {% for entry in leaderboard %}
+            <tr>
+                <td class="rank-cell">{{ entry.rank }}</td>
+                <td>{{ entry.username }}</td>
+                <td class="points-cell">{{ entry.points }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="empty-row" colspan="3">No scores have been recorded yet.</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 

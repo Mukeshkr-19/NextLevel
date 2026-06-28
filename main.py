@@ -1,20 +1,24 @@
 import csv
+import io
 import hashlib
 import random
 import string
 import bcrypt
-from flask import Flask, request, make_response, render_template, redirect, url_for, send_from_directory, jsonify
+from datetime import datetime, timezone
+from flask import Flask, request, make_response, render_template, redirect, url_for, send_from_directory, jsonify, Response, session
 from pymongo import MongoClient
 import helpers
 import json
 import os
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.urandom(24))
 mongo_client = MongoClient("mongo")
 db = mongo_client["next-level"]
 userpass = db["userpass"]
 usertoken = db["usertoken"]
 teampts = db["teampts"]
+score_audit = db["score_audit"]
 
 correct_answers = {
     "Q1": "AMDFH", "Q2": "LNSGE", "Q3": "RMSGT", "Q4": "SZZJK", "Q5": "TMMAR",
@@ -40,6 +44,106 @@ question_points = {
     "Q11": 20, "Q12": 50, "Q13": 10, "Q14": 10, "Q15": 10,
     "Q16": 10
 }
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def format_timestamp(value):
+    if not value:
+        return ""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return str(value)
+
+
+def get_leaderboard_rows(include_registered=False):
+    score_rows = {entry.get("username", ""): entry for entry in teampts.find()}
+
+    if include_registered:
+        for user in userpass.find({}, {"username": 1}):
+            username = user.get("username", "")
+            if username and username not in score_rows:
+                score_rows[username] = {
+                    "username": username,
+                    "points": 0,
+                    "questions": [],
+                    "updated_at": None
+                }
+
+    sorted_data = sorted(
+        score_rows.values(),
+        key=lambda entry: (-int(entry.get("points", 0)), entry.get("username", ""))
+    )
+    rows = []
+    previous_points = None
+    previous_rank = 0
+
+    for index, entry in enumerate(sorted_data, start=1):
+        points = entry.get("points", 0)
+        if points == previous_points:
+            rank = previous_rank
+        else:
+            rank = index
+            previous_rank = rank
+            previous_points = points
+
+        rows.append({
+            "rank": rank,
+            "username": entry.get("username", ""),
+            "points": points,
+            "questions": entry.get("questions", []),
+            "updated_at": format_timestamp(entry.get("updated_at"))
+        })
+
+    return rows
+
+
+def admin_pin_is_configured():
+    return bool(os.environ.get("NEXTLEVEL_ADMIN_PIN"))
+
+
+def admin_is_authenticated():
+    return bool(session.get("admin_authenticated"))
+
+
+def latest_score_update():
+    latest = score_audit.find_one(sort=[("created_at", -1)])
+    return format_timestamp(latest.get("created_at")) if latest else ""
+
+
+def get_audit_log(limit=25):
+    entries = score_audit.find().sort("created_at", -1).limit(limit)
+    return [{
+        "created_at": format_timestamp(entry.get("created_at")),
+        "username": entry.get("username", ""),
+        "delta": entry.get("delta", 0),
+        "previous_points": entry.get("previous_points", 0),
+        "new_points": entry.get("new_points", 0),
+        "reason": entry.get("reason", ""),
+        "actor": entry.get("actor", "")
+    } for entry in entries]
+
+
+def get_or_create_team_score(username):
+    team_data = teampts.find_one({"username": username})
+    if team_data:
+        return team_data
+
+    if not userpass.find_one({"username": username}):
+        return None
+
+    team_data = {
+        "username": username,
+        "used_q16_codes": [],
+        "questions": [],
+        "points": 0,
+        "updated_at": None
+    }
+    teampts.insert_one(team_data)
+    return team_data
 
 @app.route('/')
 def index():
@@ -68,18 +172,22 @@ def game():
 
 @app.route('/leaderboard')
 def leaderboard():
-    leaderboard_data = teampts.find().sort("points", -1)
-    leaderboard_list = [(entry.get("username"), entry.get("points", 0)) for entry in leaderboard_data]
-    response = make_response(render_template('leaderboard.html', leaderboard=leaderboard_list))
+    response = make_response(render_template(
+        'leaderboard.html',
+        leaderboard=get_leaderboard_rows(),
+        last_updated=latest_score_update()
+    ))
     visits = int(request.cookies.get('visits', 0)) + 1
     response.set_cookie('visits', str(visits), max_age=3600)
     return response
 
 @app.route('/leaderboard_data')
 def leaderboard_data():
-    sorted_data = teampts.find().sort("points", -1)
-    leaderboard_data = [{"username": entry.get("username"), "points": entry.get("points", 0)} for entry in sorted_data]
-    return jsonify(leaderboard_data)
+    return jsonify({
+        "generated_at": format_timestamp(utc_now()),
+        "last_updated": latest_score_update(),
+        "leaderboard": get_leaderboard_rows()
+    })
 
 @app.route('/mentors')
 def mentors():
@@ -101,6 +209,110 @@ def about():
     response = make_response(render_template('about.html'))
     response.set_cookie('visits', str(visits), max_age=3600)
     return response
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if not admin_pin_is_configured():
+        return render_template(
+            'admin_login.html',
+            error="Admin access is disabled until NEXTLEVEL_ADMIN_PIN is configured."
+        ), 503
+
+    error = ""
+    if request.method == 'POST':
+        pin = request.form.get('pin', '')
+        if pin == os.environ.get("NEXTLEVEL_ADMIN_PIN"):
+            session["admin_authenticated"] = True
+            return redirect(url_for('admin_dashboard'))
+        error = "The admin PIN was not accepted."
+
+    return render_template('admin_login.html', error=error)
+
+@app.route('/admin/logout', methods=['POST'])
+def admin_logout():
+    session.pop("admin_authenticated", None)
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin')
+def admin_dashboard():
+    if not admin_is_authenticated():
+        return redirect(url_for('admin_login'))
+
+    return render_template(
+        'admin.html',
+        teams=get_leaderboard_rows(include_registered=True),
+        audit_log=get_audit_log()
+    )
+
+@app.route('/admin/scores/adjust', methods=['POST'])
+def admin_adjust_score():
+    if not admin_is_authenticated():
+        return redirect(url_for('admin_login'))
+
+    username = request.form.get('username', '').strip()
+    reason = request.form.get('reason', '').strip()
+    actor = request.form.get('actor', '').strip() or "Event staff"
+
+    try:
+        requested_delta = int(request.form.get('delta', '0'))
+    except ValueError:
+        return "Point adjustment must be a whole number.", 400
+
+    if not username:
+        return "Team is required.", 400
+    if not reason:
+        return "Reason is required.", 400
+    if requested_delta == 0:
+        return "Point adjustment cannot be zero.", 400
+
+    team_data = get_or_create_team_score(username)
+    if not team_data:
+        return "Team not found.", 404
+
+    previous_points = int(team_data.get("points", 0))
+    new_points = max(0, previous_points + requested_delta)
+    actual_delta = new_points - previous_points
+    changed_at = utc_now()
+
+    teampts.update_one(
+        {"username": username},
+        {"$set": {"points": new_points, "updated_at": changed_at}}
+    )
+    score_audit.insert_one({
+        "username": username,
+        "delta": actual_delta,
+        "requested_delta": requested_delta,
+        "previous_points": previous_points,
+        "new_points": new_points,
+        "reason": reason,
+        "actor": actor,
+        "created_at": changed_at
+    })
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/export/scores.csv')
+def admin_export_scores():
+    if not admin_is_authenticated():
+        return redirect(url_for('admin_login'))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["rank", "team", "points", "questions_completed", "last_updated"])
+    for row in get_leaderboard_rows(include_registered=True):
+        writer.writerow([
+            row["rank"],
+            row["username"],
+            row["points"],
+            len(row["questions"]),
+            row["updated_at"]
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=next-level-scores.csv"}
+    )
 
 @app.route('/registeruser', methods=['POST'])
 def register_user():
@@ -178,7 +390,7 @@ def submit():
             {"username": username},
             {
                 "$addToSet": {"questions": {"$each": questions_correct}},
-                "$set": {"used_q16_codes": team_used_q16_codes},
+                "$set": {"used_q16_codes": team_used_q16_codes, "updated_at": utc_now()},
                 "$inc": {"points": total_points}
             },
             upsert=True

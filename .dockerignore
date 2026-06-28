@@ -1,0 +1,17 @@
+.git
+.gitignore
+.claw-workflow
+.DS_Store
+**/.DS_Store
+.idea
+.vscode
+__pycache__
+**/__pycache__
+*.py[cod]
+node_modules
+npm-debug.log
+dist
+style.css.map
+.env
+.env.*
+*.log

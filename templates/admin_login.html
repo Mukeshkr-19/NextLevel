@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Next-Level Admin Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="../static/css/style.css">
+    <style>
+        body {
+            background: #f5f7fb;
+            font-family: Poppins, Arial, sans-serif;
+        }
+
+        .admin-login {
+            max-width: 460px;
+            margin: 80px auto;
+            background: #ffffff;
+            border: 1px solid #d9e0ea;
+            border-radius: 8px;
+            padding: 28px;
+            box-shadow: 0 8px 24px rgba(20, 32, 50, 0.08);
+        }
+
+        .admin-login h1 {
+            margin-top: 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1d2b3a;
+        }
+
+        .admin-login label {
+            margin-top: 14px;
+            color: #263849;
+        }
+
+        .admin-login .btn {
+            width: 100%;
+            margin-top: 18px;
+            background: #1d5f99;
+            color: #ffffff;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+<main class="admin-login">
+    <h1>Staff Admin</h1>
+    <p>Use the event admin PIN to manage scores and exports.</p>
+    {% if error %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endif %}
+    <form action="/admin/login" method="post">
+        <label for="pin">Admin PIN</label>
+        <input type="password" id="pin" name="pin" class="form-control" autocomplete="current-password" required>
+        <button type="submit" class="btn">Open Dashboard</button>
+    </form>
+</main>
+</body>
+</html>
