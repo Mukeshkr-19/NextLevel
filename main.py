@@ -465,6 +465,8 @@ def register_users_from_json():
         userpass.insert_one({"username": username, "password": password_hash})
         print(f"Registered user: {username}")
 
-register_users_from_json()
+if os.environ.get("NEXTLEVEL_SKIP_USER_SEED") != "1":
+    register_users_from_json()
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000)
