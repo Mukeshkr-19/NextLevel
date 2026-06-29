@@ -39,6 +39,32 @@
             flex-wrap: wrap;
         }
 
+        .admin-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .summary-item {
+            background: #ffffff;
+            border: 1px solid #d9e0ea;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .summary-label {
+            color: #40546a;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .summary-value {
+            color: #1d2b3a;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
         .admin-panel {
             background: #ffffff;
             border: 1px solid #d9e0ea;
@@ -74,6 +100,12 @@
             margin-bottom: 4px;
         }
 
+        .field-help {
+            color: #5c6f82;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
         .btn-primary {
             background: #1d5f99;
             border-color: #1d5f99;
@@ -98,6 +130,10 @@
             .score-form {
                 grid-template-columns: 1fr;
             }
+
+            .admin-summary {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -117,6 +153,32 @@
         </div>
     </header>
 
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success" role="status">{{ success }}</div>
+    {% endif %}
+
+    <section class="admin-summary" aria-label="Scoreboard summary">
+        <div class="summary-item">
+            <div class="summary-label">Registered teams</div>
+            <div class="summary-value">{{ summary.registered_teams }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Teams with points</div>
+            <div class="summary-value">{{ summary.scored_teams }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Total points</div>
+            <div class="summary-value">{{ summary.total_points }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Latest manual change</div>
+            <div class="summary-value" style="font-size: 16px;">{{ summary.latest_change }}</div>
+        </div>
+    </section>
+
     <section class="admin-panel">
         <h2>Adjust Team Points</h2>
         <form class="score-form" action="/admin/scores/adjust" method="post">
@@ -132,14 +194,17 @@
             <div>
                 <label for="delta">Points</label>
                 <input type="number" id="delta" name="delta" class="form-control" placeholder="+10" required>
+                <div class="field-help">Use positive or negative whole numbers.</div>
             </div>
             <div>
                 <label for="reason">Reason</label>
                 <input type="text" id="reason" name="reason" class="form-control" placeholder="Example: mentor bonus verified" required>
+                <div class="field-help">Required for the audit log.</div>
             </div>
             <div>
                 <label for="actor">Staff name</label>
                 <input type="text" id="actor" name="actor" class="form-control" placeholder="Optional">
+                <div class="field-help">Optional, but helpful during awards.</div>
             </div>
             <button type="submit" class="btn btn-primary">Apply</button>
         </form>

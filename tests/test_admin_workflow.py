@@ -184,7 +184,34 @@ class AdminWorkflowTests(unittest.TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn(b"Reason is required", response.data)
+        self.assertIn(b"Reason is required for every score change", response.data)
+
+    def test_admin_adjust_score_rejects_noop_below_zero(self):
+        client = main.app.test_client()
+        with client.session_transaction() as session:
+            session["admin_authenticated"] = True
+
+        response = client.post("/admin/scores/adjust", data={
+            "username": "Team Gamma",
+            "delta": "-5",
+            "reason": "correction entered twice",
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Team Gamma is already at zero points", response.data)
+        self.assertIsNone(self.score_audit.find_one({"username": "Team Gamma"}))
+
+    def test_admin_dashboard_shows_summary(self):
+        client = main.app.test_client()
+        with client.session_transaction() as session:
+            session["admin_authenticated"] = True
+
+        response = client.get("/admin")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Registered teams", response.data)
+        self.assertIn(b"Teams with points", response.data)
+        self.assertIn(b"Total points", response.data)
 
     def test_admin_export_scores_csv_includes_registered_teams(self):
         client = main.app.test_client()

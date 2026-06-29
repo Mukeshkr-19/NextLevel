@@ -127,6 +127,28 @@ def get_audit_log(limit=25):
     } for entry in entries]
 
 
+def get_admin_summary(teams):
+    scored_teams = [team for team in teams if int(team.get("points", 0)) > 0]
+    return {
+        "registered_teams": len(teams),
+        "scored_teams": len(scored_teams),
+        "total_points": sum(int(team.get("points", 0)) for team in teams),
+        "latest_change": latest_score_update() or "No manual changes yet"
+    }
+
+
+def render_admin_dashboard(status_code=200, error="", success=""):
+    teams = get_leaderboard_rows(include_registered=True)
+    return render_template(
+        'admin.html',
+        teams=teams,
+        audit_log=get_audit_log(),
+        summary=get_admin_summary(teams),
+        error=error or request.args.get("error", ""),
+        success=success or request.args.get("success", "")
+    ), status_code
+
+
 def get_or_create_team_score(username):
     team_data = teampts.find_one({"username": username})
     if team_data:
@@ -238,11 +260,8 @@ def admin_dashboard():
     if not admin_is_authenticated():
         return redirect(url_for('admin_login'))
 
-    return render_template(
-        'admin.html',
-        teams=get_leaderboard_rows(include_registered=True),
-        audit_log=get_audit_log()
-    )
+    rendered_dashboard, _ = render_admin_dashboard()
+    return rendered_dashboard
 
 @app.route('/admin/scores/adjust', methods=['POST'])
 def admin_adjust_score():
@@ -256,22 +275,25 @@ def admin_adjust_score():
     try:
         requested_delta = int(request.form.get('delta', '0'))
     except ValueError:
-        return "Point adjustment must be a whole number.", 400
+        return render_admin_dashboard(400, error="Point adjustment must be a whole number.")
 
     if not username:
-        return "Team is required.", 400
+        return render_admin_dashboard(400, error="Select a team before applying a score change.")
     if not reason:
-        return "Reason is required.", 400
+        return render_admin_dashboard(400, error="Reason is required for every score change.")
     if requested_delta == 0:
-        return "Point adjustment cannot be zero.", 400
+        return render_admin_dashboard(400, error="Point adjustment cannot be zero.")
 
     team_data = get_or_create_team_score(username)
     if not team_data:
-        return "Team not found.", 404
+        return render_admin_dashboard(404, error="Team not found. Confirm the team is registered before changing points.")
 
     previous_points = int(team_data.get("points", 0))
     new_points = max(0, previous_points + requested_delta)
     actual_delta = new_points - previous_points
+    if actual_delta == 0:
+        return render_admin_dashboard(400, error=f"{username} is already at zero points.")
+
     changed_at = utc_now()
 
     teampts.update_one(
@@ -289,7 +311,8 @@ def admin_adjust_score():
         "created_at": changed_at
     })
 
-    return redirect(url_for('admin_dashboard'))
+    success = f"Updated {username}: {previous_points} to {new_points} points."
+    return redirect(url_for('admin_dashboard', success=success))
 
 @app.route('/admin/export/scores.csv')
 def admin_export_scores():
