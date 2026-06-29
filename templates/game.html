@@ -19,6 +19,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap"
           rel="stylesheet">
     <script src="https://kit.fontawesome.com/c7e593ee29.js" crossorigin="anonymous"></script>
+    <style>
+        a:focus,
+        button:focus,
+        input:focus {
+            outline: 3px solid #f7c948;
+            outline-offset: 3px;
+        }
+
+        .game-instructions {
+            background: #ffffff;
+            border: 1px solid #d9e0ea;
+            border-radius: 8px;
+            color: #1d2b3a;
+            margin-bottom: 20px;
+            padding: 18px;
+        }
+
+        .field-help {
+            color: #40546a;
+            font-size: 13px;
+            margin: 6px 0 14px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -27,6 +62,7 @@
     <div class="container">
         <div class="navbar-header">
             <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                <span class="sr-only">Toggle navigation</span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
@@ -51,12 +87,16 @@
 
 
 <!-- Main Content -->
-<section class="container-fluid sec-2 ">
+<main class="container-fluid sec-2 ">
     <div class="container">
         <div class="row clearfix nor">
             <form control="" class="form-group" action="/submit" method="post" enctype="multipart/form-data">
                 <div class="col-sm-12 dopup">
-                    <h1> Team {{team}}</h1>
+                    <h1>Team {{ team or "not logged in" }}</h1>
+                    <div class="game-instructions">
+                        <p>Complete each activity, then enter the verification code provided by event staff. Already completed activities are locked.</p>
+                        <p>If a code does not work, ask event staff before trying multiple corrections.</p>
+                    </div>
 
                     {% for q_num in range(1, 17) %}
                     {% if q_num % 2 == 1 %}
@@ -84,16 +124,16 @@
                             ][q_num - 1] %}
 
                             <label for="Q{{ q_num }}">{{ question_label }}</label>
+                            <div id="Q{{ q_num }}Help" class="field-help">Enter the staff verification code for this activity.</div>
 
                             {% if q_num != 16 %}
                             {% if 'Q' + q_num|string in questions_correct %}
-                            <input type="text" id="Q{{ q_num }}" name="Q{{ q_num }}" class="form__input" disabled>
+                            <input type="text" id="Q{{ q_num }}" name="Q{{ q_num }}" class="form__input" placeholder="Completed" aria-describedby="Q{{ q_num }}Help" disabled>
                             {% else %}
-                            <input type="text" id="Q{{ q_num }}" name="Q{{ q_num }}" class="form__input">
+                            <input type="text" id="Q{{ q_num }}" name="Q{{ q_num }}" class="form__input" aria-describedby="Q{{ q_num }}Help" autocomplete="off">
                             {% endif %}
                             {% else %}
-                            <input type="text" id="Q16" name="Q16" class="form__input" {% if all_q16_used %}disabled{%
-                                   endif %}>
+                            <input type="text" id="Q16" name="Q16" class="form__input" aria-describedby="Q16Help" autocomplete="off" {% if all_q16_used %}placeholder="All mentor bonus codes used" disabled{% endif %}>
                             {% endif %}
                         </div>
                         {% if q_num % 2 == 0 %}
@@ -107,7 +147,7 @@
             </form>
         </div>
     </div>
-</section>
+</main>
 
 <!-- Footer -->
 <section class="footer container">
@@ -128,4 +168,3 @@
 </script>
 </body>
 </html>
-

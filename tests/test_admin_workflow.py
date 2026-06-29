@@ -225,6 +225,27 @@ class AdminWorkflowTests(unittest.TestCase):
         self.assertEqual(rows[0], ["rank", "team", "points", "questions_completed", "last_updated"])
         self.assertIn(["3", "Team Gamma", "0", "0", ""], rows)
 
+    def test_leaderboard_page_has_accessibility_controls(self):
+        client = main.app.test_client()
+
+        response = client.get("/leaderboard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Pause updates", response.data)
+        self.assertIn(b"aria-pressed", response.data)
+        self.assertIn(b"<caption", response.data)
+        self.assertIn(b'scope="col"', response.data)
+
+    def test_game_page_explains_verification_code_inputs(self):
+        client = main.app.test_client()
+
+        response = client.get("/game")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"verification code provided by event staff", response.data)
+        self.assertIn(b"Toggle navigation", response.data)
+        self.assertIn(b"aria-describedby", response.data)
+
 
 if __name__ == "__main__":
     unittest.main()

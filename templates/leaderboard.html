@@ -22,7 +22,17 @@
     <script>
 
         $(document).ready(function () {
+            var refreshPaused = false;
+
+            function escapeHtml(value) {
+                return $('<div>').text(value).html();
+            }
+
             function updateLeaderboard() {
+                if (refreshPaused) {
+                    return;
+                }
+
                 $.ajax({
                     url: '/leaderboard_data',
                     type: 'GET',
@@ -31,7 +41,7 @@
                         data.leaderboard.forEach(function (entry) {
                             leaderboardHTML += '<tr>' +
                                 '<td class="rank-cell">' + entry.rank + '</td>' +
-                                '<td>' + entry.username + '</td>' +
+                                '<td>' + escapeHtml(entry.username) + '</td>' +
                                 '<td class="points-cell">' + entry.points + '</td>' +
                                 '</tr>';
                         });
@@ -44,10 +54,26 @@
                 });
             }
 
-            setInterval(updateLeaderboard, 1000);
+            $('#refreshToggle').on('click', function () {
+                refreshPaused = !refreshPaused;
+                $(this).text(refreshPaused ? 'Resume updates' : 'Pause updates');
+                $(this).attr('aria-pressed', refreshPaused ? 'true' : 'false');
+                $('#refreshStatus').text(refreshPaused ? 'Leaderboard updates paused.' : 'Leaderboard updates resumed.');
+                if (!refreshPaused) {
+                    updateLeaderboard();
+                }
+            });
+
+            setInterval(updateLeaderboard, 5000);
         });
     </script>
     <style>
+        a:focus,
+        button:focus {
+            outline: 3px solid #f7c948;
+            outline-offset: 3px;
+        }
+
         body {
             background: #07111f;
         }
@@ -78,6 +104,31 @@
             color: #bdd2e8;
             font-size: 18px;
             text-align: right;
+        }
+
+        .leaderboard-controls {
+            margin-top: 12px;
+        }
+
+        .refresh-toggle {
+            background: #ffffff;
+            border: 2px solid #ffffff;
+            border-radius: 4px;
+            color: #102033;
+            font-weight: 700;
+            padding: 9px 14px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         .leaderboard-table {
@@ -131,6 +182,10 @@
                 text-align: left;
             }
 
+            .leaderboard-controls {
+                margin-bottom: 14px;
+            }
+
             .leaderboard-table th,
             .leaderboard-table td {
                 padding: 16px 12px;
@@ -145,6 +200,7 @@
     <div class="container">
         <div class="navbar-header">
             <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                <span class="sr-only">Toggle navigation</span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
@@ -178,15 +234,20 @@
             </div>
             <div class="last-updated">
                 Last updated: <span id="lastUpdated">{{ last_updated or "Waiting for scores" }}</span>
+                <div class="leaderboard-controls">
+                    <button type="button" id="refreshToggle" class="refresh-toggle" aria-pressed="false">Pause updates</button>
+                    <span id="refreshStatus" class="sr-only" role="status"></span>
+                </div>
             </div>
         </div>
 
-        <table class="leaderboard-table">
+        <table class="leaderboard-table" aria-describedby="lastUpdated">
+            <caption class="sr-only">Live event leaderboard showing rank, team name, and points.</caption>
             <thead>
             <tr>
-                <th>Rank</th>
-                <th>Team</th>
-                <th>Points</th>
+                <th scope="col">Rank</th>
+                <th scope="col">Team</th>
+                <th scope="col">Points</th>
             </tr>
             </thead>
             <tbody id="leaderboardBody">
