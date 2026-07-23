@@ -23,11 +23,21 @@ This is not final production hosting yet. Use it as a working prototype until th
 ## Branch Workflow
 
 - `main`: production/fallback branch.
-- `dev`: integration branch for tested prototype work.
-- feature branches: focused changes that merge into `dev` after verification.
-- `2026-27-nextlevel`: current prototype branch for the 2026-27 Next Level work.
+- `dev`: integration branch for tested event-cycle work.
+- `YYYY-YY-nextlevel`: one active event-cycle branch, such as `2026-27-nextlevel`.
 
-Do not merge to `main` until the prototype has passed event-day testing and staff approval.
+Yearly work should start from `dev`, use a Git-safe branch name like `2026-27-nextlevel`, and keep all changes for that event cycle on that branch. After verification, merge the yearly branch into `dev`. Merge `dev` into `main` only after the event workflow is tested and approved for production/fallback use.
+
+Do not keep old temporary feature branches after their work has moved into the yearly branch. They make handoff harder for the next student or staff maintainer.
+
+Recommended handoff rule:
+
+1. Pull the latest `dev`.
+2. Create or switch to the yearly branch, for example `2026-27-nextlevel`.
+3. Make and verify changes on the yearly branch.
+4. Push the yearly branch to GitHub.
+5. Merge yearly branch into `dev` after checks pass.
+6. Merge `dev` into `main` only after staff approval.
 
 ## Requirements
 
