@@ -1,27 +1,44 @@
 # Next Level Event Platform
 
-This repository contains the Next-Level Leadership event web app. The current prototype keeps the original Flask and MongoDB flow available while adding safer event-day operations:
+Next Level is a Flask and MongoDB web app for the annual Next-Level Leadership event. It supports team login, event questions, score tracking, a live projector leaderboard, and staff score administration.
 
-- team login and game scoring,
-- live leaderboard,
-- staff admin dashboard,
+This branch is a safer prototype for the 2026-27 event cycle. The priority is event-day reliability first, cloud readiness second, and UI polish third.
+
+## Current Prototype
+
+The prototype keeps the original app available as a fallback and adds:
+
+- staff admin dashboard for teams and scores,
 - manual score adjustments with required reasons,
 - score audit history,
-- CSV export for backups,
-- Docker-based local deployment.
+- CSV score export for backups,
+- rank and tie handling on the leaderboard,
+- last-updated data for staff/projector use,
+- public-page accessibility review notes,
+- Docker-based local run path,
+- event-day runbook and backup guidance.
 
-The main goal is event-day reliability. Cloud deployment and UI polish come after the local event workflow is stable and tested.
+This is not final production hosting yet. Use it as a working prototype until the event team approves the workflow and deployment plan.
 
-## Branch workflow
+## Branch Workflow
 
-- `main` is the production/fallback branch.
-- `dev` is the integration branch for the safer prototype.
-- Feature work happens on a focused branch, then merges into `dev` only after verification.
-- Do not merge to `main` until the prototype has been tested and approved for production use.
+- `main`: production/fallback branch.
+- `dev`: integration branch for tested prototype work.
+- feature branches: focused changes that merge into `dev` after verification.
+- `2026-27-nextlevel`: current prototype branch for the 2026-27 Next Level work.
 
-## Local setup
+Do not merge to `main` until the prototype has passed event-day testing and staff approval.
 
-Install Python dependencies in a virtual environment:
+## Requirements
+
+- Python 3
+- Docker
+- Colima on macOS, if Docker Desktop is not used
+- MongoDB, provided by Docker for local testing
+
+## Local Development Setup
+
+Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -29,11 +46,17 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-The app expects MongoDB at host `mongo` when running in Docker. For normal event testing, use the Docker workflow below.
+Run local checks before committing:
+
+```bash
+python3 -m py_compile main.py helpers.py
+python3 -m unittest discover -s tests
+git diff --check
+```
 
 ## Admin PIN
 
-The admin dashboard is disabled until `NEXTLEVEL_ADMIN_PIN` is set.
+The admin dashboard requires `NEXTLEVEL_ADMIN_PIN`.
 
 For local testing only:
 
@@ -41,13 +64,11 @@ For local testing only:
 export NEXTLEVEL_ADMIN_PIN=1234
 ```
 
-Use a different PIN for any real event run. Do not commit event PINs, credentials, or secrets.
+Use a different PIN for any real event run. Do not commit event PINs, passwords, exported credentials, or secrets.
 
-## Docker run
+## Docker Demo Run
 
-Docker is used for milestone verification and event-style local runs. It does not need to run after every small edit.
-
-If Colima is stopped:
+Start Colima if needed:
 
 ```bash
 colima start
@@ -57,10 +78,18 @@ Build and run the app with MongoDB:
 
 ```bash
 docker network create nextlevel-net
-docker run -d --name nextlevel-mongo --network nextlevel-net mongo:4.2.5
+docker run -d --name nextlevel-mongo --network nextlevel-net --network-alias mongo mongo:4.2.5
 docker build -t nextlevel-app .
 docker run -d --name nextlevel-app --network nextlevel-net -p 3000:3000 -e WAIT_HOSTS=mongo:27017 -e NEXTLEVEL_ADMIN_PIN=1234 nextlevel-app
 ```
+
+If old demo containers already exist:
+
+```bash
+docker rm -f nextlevel-app nextlevel-mongo
+```
+
+Then run the MongoDB and app commands again.
 
 Open:
 
@@ -77,29 +106,57 @@ docker ps
 colima stop
 ```
 
-## Lightweight checks
+## Staff Demo Flow
 
-Run these before commits:
+1. Open the main site and leaderboard.
+2. Log in to `/admin/login`.
+3. Confirm teams are visible in the admin dashboard.
+4. Adjust a team's score with a clear reason.
+5. Confirm the audit log records the change.
+6. Confirm the leaderboard updates with rank, team, and points.
+7. Export the CSV backup.
 
-```bash
-python3 -m py_compile main.py helpers.py
-python3 -m unittest discover -s tests
-git diff --check
+Recommended explanation:
+
+```text
+The current system stays available as a fallback. This prototype adds staff-friendly score corrections, required reasons, audit history, CSV backups, and a clearer projector leaderboard so event-day scoring is easier to recover and explain.
 ```
 
-Run Docker verification at milestones, before demos, and before merging to `dev`.
+## Event-Day Operating Notes
 
-## Accessibility note
+Before using this at a live event:
 
-Public-facing pages must be reviewed before they are considered ready for event use. Use the project accessibility checklist and target WCAG-style AA checks. Do not claim legal ADA compliance without proper review.
+- run Docker verification on the event laptop,
+- confirm the admin PIN is set outside the repo,
+- export an initial CSV backup,
+- keep a manual score sheet ready,
+- assign one scorekeeper and one technical helper,
+- review public pages using the accessibility checklist.
 
-Gallery and public photo changes need extra discussion before release because image descriptions, keyboard access, and layout can affect accessibility.
+See `EVENT_RUNBOOK.md` for the full staff runbook.
 
-## Important files
+## Accessibility
+
+Public-facing pages have an initial accessibility checklist review. Current focus areas include keyboard focus, clearer form instructions, semantic leaderboard tables, and pauseable leaderboard updates.
+
+Do not describe the project as legally ADA-certified without formal review.
+
+## Important Files
 
 - `main.py`: Flask routes, scoring, leaderboard data, admin routes.
+- `helpers.py`: shared helper functions.
 - `templates/admin.html`: staff dashboard.
-- `templates/leaderboard.html`: projector-friendly leaderboard.
+- `templates/admin_login.html`: admin login page.
+- `templates/game.html`: team game page.
+- `templates/leaderboard.html`: projector leaderboard.
+- `tests/test_admin_workflow.py`: admin, leaderboard, export, and accessibility smoke tests.
 - `EVENT_RUNBOOK.md`: event-day operating guide.
-- `ACCESSIBILITY_CHECKLIST.md`: public-facing review checklist.
-- `DEVELOPMENT_PLAN.md`: next prototype tracks and priorities.
+- `ACCESSIBILITY_CHECKLIST.md`: public-page review checklist.
+- `ACCESSIBILITY_REVIEW.md`: current accessibility review notes.
+- `DEVELOPMENT_PLAN.md`: planned prototype tracks.
+
+## Deployment Direction
+
+The near-term goal is a stable local/Docker prototype. Later cloud deployment can use a managed app host plus managed MongoDB, such as Render, Railway, Fly.io, or a similar service with MongoDB Atlas.
+
+Before any live cloud deployment, add a tested backup/export process, production secret handling, and a rollback plan.
